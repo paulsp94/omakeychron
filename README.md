@@ -8,7 +8,7 @@ Colors are adjusted before they reach the LEDs: theme palettes are often desatur
 
 ## Supported keyboards
 
-Any Keychron running QMK/VIA firmware (USB vendor ID `3434`) that exposes the VIA raw-HID interface — the V, Q, K Pro/Max lines. Tested on a K3 Max.
+Any Keychron running QMK/VIA firmware (USB vendor ID `3434`) that exposes the VIA raw-HID interface — the V, Q, K Pro/Max lines. Tested on a K3 Max and on a Q1 Pro running firmware 1.02 (VIA protocol v10).
 
 **Wired only.** The Keychron Link 2.4 GHz dongle exposes a VIA interface but does not bridge it to the keyboard, and Bluetooth has no HID access at all. The plugin detects the dongle's dead interface and skips it. Practical upshot: plug in USB when you switch themes; the saved color then persists while you use the keyboard wirelessly.
 

@@ -32,6 +32,10 @@ CHANNEL_RGB_MATRIX = 0x03
 VALUE_EFFECT = 0x02
 VALUE_COLOR = 0x04
 EFFECT_SOLID_COLOR = 0x01
+VIA_CUSTOM_CHANNELS = 0x000B  # protocol version that introduced channel-based values
+LEGACY_VALUE_EFFECT = 0x81  # VIA v10 id_qmk_rgblight_effect
+LEGACY_VALUE_COLOR = 0x83  # VIA v10 id_qmk_rgblight_color
+VIA_UNHANDLED = 0xFF  # v11+ replaces byte 0 with this when it refuses a command
 
 
 def read_theme_color():
@@ -145,13 +149,24 @@ def apply_color(hexcolor):
         try:
             if not stat.S_ISCHR(os.fstat(fd).st_mode):
                 continue
-            if xfer(fd, [0x01]) is None:  # id_get_protocol_version handshake
+            version = xfer(fd, [0x01])  # id_get_protocol_version handshake
+            if version is None:
                 continue  # the Link dongle's dead interface lands here
-            ok = xfer(fd, [CMD_CUSTOM_SET, CHANNEL_RGB_MATRIX, VALUE_EFFECT, EFFECT_SOLID_COLOR])
-            ok2 = xfer(fd, [CMD_CUSTOM_SET, CHANNEL_RGB_MATRIX, VALUE_COLOR, int(h * 255), int(s * 255)])
-            xfer(fd, [CMD_CUSTOM_SAVE, CHANNEL_RGB_MATRIX])
+            if (version[1] << 8 | version[2]) >= VIA_CUSTOM_CHANNELS:
+                ok = xfer(fd, [CMD_CUSTOM_SET, CHANNEL_RGB_MATRIX, VALUE_EFFECT, EFFECT_SOLID_COLOR])
+                ok2 = xfer(fd, [CMD_CUSTOM_SET, CHANNEL_RGB_MATRIX, VALUE_COLOR, int(h * 255), int(s * 255)])
+                xfer(fd, [CMD_CUSTOM_SAVE, CHANNEL_RGB_MATRIX])
+            else:
+                # VIA v10 and older (e.g. Q1 Pro 1.02): no channel byte. The values
+                # live at fixed IDs 0x80-0x83, named rgblight but routed to the RGB
+                # matrix on these boards. v10 never signals a refused command.
+                ok = xfer(fd, [CMD_CUSTOM_SET, LEGACY_VALUE_EFFECT, EFFECT_SOLID_COLOR])
+                ok2 = xfer(fd, [CMD_CUSTOM_SET, LEGACY_VALUE_COLOR, int(h * 255), int(s * 255)])
+                xfer(fd, [CMD_CUSTOM_SAVE])
             if ok is None or ok2 is None:
                 sys.exit(f"{dev}: keyboard stopped responding mid-write")
+            if VIA_UNHANDLED in (ok[0], ok2[0]):
+                sys.exit(f"{dev}: keyboard refused the lighting commands (VIA protocol {version[1]:02x}{version[2]:02x})")
             return True
         finally:
             os.close(fd)
